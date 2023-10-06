@@ -39,7 +39,7 @@ Be a [stargazer](https://github.com/Sebbo94BY/teamspeak-dynamic-banner/stargazer
     * Supports the ServerQuery protocol RAW and SSH
     * Define the client nickname
     * Define the default channel, where the client should be in when connected
-* Upload one or more images as templates
+* Upload one or more images of the type PNG, JPEG or (animated) GIF as templates
 * Define one or more banners (each gets a dedicated link)
     * Supports various rotation configurations
         * Non-Random: Every client, which requests the banner, will always see the same template as all other clients.
@@ -56,6 +56,22 @@ Be a [stargazer](https://github.com/Sebbo94BY/teamspeak-dynamic-banner/stargazer
     * This avoids annoying connects / disconnects to get all necessary data every time
     * The required data gets fetched event based (e.g. client joins the server) and partitially regulary (e.g. every 5 minutes)
     * All fetched data will be stored in the Redis to speed up the entire application
+
+
+## Supported Languages
+
+This project has multi-language support for the UI.
+
+For a current list of supported languages, please check the respective folder: [laravel/lang/](/laravel/lang/)
+
+
+## Matomo Tracking
+
+If you're interested in some statistics of this application, you can configure a Matomo tracking code, which sends the respective tracking data to your Matomo installation.
+
+Simply configure the Matomo tracking in your DotEnv file (`.env`) with the respective variables. See the configuration file `laravel/config/matomo.php` for the available environment variables and a detailed explanation.
+
+After configuring it, don't forget to cache your configuration: `php artisan config:cache`
 
 
 ## Requirements
@@ -87,6 +103,9 @@ Be a [stargazer](https://github.com/Sebbo94BY/teamspeak-dynamic-banner/stargazer
 * Git
 * [Composer](https://getcomposer.org/)
 * [npm](https://www.npmjs.com/) (Version 9.x or newer)
+* [FFmpeg](https://ffmpeg.org/) to support animated GIFs as template
+    * This is only required, if you want to use (animated) GIF images as templates for your banners
+    * Your environment variable `PATH` should include the path to your `ffmpeg` binary
 
 
 ## TeamSpeak Permissions
@@ -111,22 +130,6 @@ This project requires the following permissions on your TeamSpeak server:
 | `b_virtualserver_servergroup_client_list` | Allow the bot to get some information. |
 | `b_client_info_view` | Allow the bot to get some information. |
 | `b_client_remoteaddress_view` | Allow the bot to get the IP addresses of the clients. This is technically necessary to identify users when they request the banner. |
-
-
-## Supported Languages
-
-The application UI is currently available in the following languages:
-
-* English
-
-
-## Matomo Tracking
-
-If you're interested in some statistics of this application, you can configure a Matomo tracking code, which sends the respective tracking data to your Matomo installation.
-
-Simply configure the Matomo tracking in your DotEnv file (`.env`) with the respective variables. See the configuration file `laravel/config/matomo.php` for the available environment variables and a detailed explanation.
-
-After configuring it, don't forget to cache your configuration: `php artisan config:cache`
 
 
 ## Architecture
@@ -159,5 +162,7 @@ Open a Github issue [here](https://github.com/Sebbo94BY/teamspeak-dynamic-banner
 
 
 ## Contribute
+
+[Open Translation README](/docs/TRANSLATION.md)
 
 [Open Contribute README](/docs/CONTRIBUTE.md)
