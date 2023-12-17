@@ -322,11 +322,59 @@ class SystemStatusController extends Controller
             case 'smtp':
                 $reachable = false;
 
+                /**
+                 * Yes, this is kinda confusing. To use TLS (STARTTLS) `$tls = false` needs to be passed to EsmtpTransport.
+                 * Symfony tries by default to use (START)TLS then, if the server supports it.
+                 *
+                 * - https://github.com/symfony/mailer/blob/v6.3.5/Transport/Smtp/EsmtpTransport.php#L54-L66
+                 * - https://github.com/symfony/mailer/blob/v6.3.5/Transport/Smtp/Stream/SocketStream.php#L138-L140
+                 * - https://stackoverflow.com/questions/75712823/laravel-10-test-email-connection-with-esmtptransport-class
+                 */
+                switch (strtolower(config('mail.mailers.smtp.encryption'))) {
+                    case 'tls' || 'starttls':
+                        $tls = false;
+                        break;
+
+                    case 'ssl':
+                        $tls = true;
+                        break;
+
+                    case '':
+                        $tls = null;
+                        break;
+
+                    default:
+                        $tls = null;
+                        break;
+                }
+
                 try {
-                    $transport = new EsmtpTransport(config('mail.mailers.smtp.host'), config('mail.mailers.smtp.port'), config('mail.mailers.smtp.encryption'));
+                    // create a new SMTP connection
+                    $transport = new EsmtpTransport(config('mail.mailers.smtp.host'), config('mail.mailers.smtp.port'), $tls);
+
+                    $stream = $transport->getStream();
+
+                    // set timeout
+                    $stream->setTimeout(config('mail.mailers.smtp.timeout'));
+
+                    // set `verify_peer` based on the DotEnv configuration
+                    $streamOptions = $stream->getStreamOptions();
+                    $streamOptions['ssl']['verify_peer'] = config('mail.mailers.smtp.verify_peer');
+                    $streamOptions['ssl']['verify_peer_name'] = config('mail.mailers.smtp.verify_peer');
+                    $stream->setStreamOptions($streamOptions);
+
+                    // set authentication
                     $transport->setUsername(config('mail.mailers.smtp.username') ?? '');
                     $transport->setPassword(config('mail.mailers.smtp.password') ?? '');
+
+                    // connect
                     $transport->start();
+
+                    // test connection (check if a ping succeeds)
+                    $transport->executeCommand("NOOP\r\n", [250]);
+
+                    // disconnect
+                    $transport->stop();
 
                     $reachable = true;
                 } catch (\Exception $e) {
@@ -334,9 +382,10 @@ class SystemStatusController extends Controller
                 }
 
                 $requirements['TEST']['current_value'] = ($reachable) ? __('views/inc/system/systemstatus.accordion_section_mail_connection_current_value_connected') : __('views/inc/system/systemstatus.accordion_section_mail_connection_current_value_error', ['exception' => $mail_connection_exception]);
-                $requirements['TEST']['severity'] = ($reachable) ? SystemStatusSeverity::Success : SystemStatusSeverity::Danger;
+                $requirements['TEST']['severity'] = ($reachable) ? SystemStatusSeverity::Success : SystemStatusSeverity::Warning;
 
                 break;
+
             default:
                 $requirements['TEST']['current_value'] = __('views/inc/system/systemstatus.accordion_section_mail_connection_current_value_unsupported_mailer_for_testing');
                 $requirements['TEST']['severity'] = SystemStatusSeverity::Warning;
@@ -371,10 +420,17 @@ class SystemStatusController extends Controller
     {
         $requirements = [];
 
+        $is_git_deployment = file_exists('../../.git/');
+
         $requirements['IS_GIT_DEPLOYMENT']['name'] = __('views/inc/system/systemstatus.accordion_section_various_git_deployment');
-        $requirements['IS_GIT_DEPLOYMENT']['current_value'] = (file_exists('../.git/')) ? __('views/inc/system/systemstatus.accordion_section_various_git_deployment_current_value_yes') : __('views/inc/system/systemstatus.accordion_section_various_git_deployment_current_value_no');
+        $requirements['IS_GIT_DEPLOYMENT']['current_value'] = ($is_git_deployment) ? __('views/inc/system/systemstatus.accordion_section_various_git_deployment_current_value_yes') : __('views/inc/system/systemstatus.accordion_section_various_git_deployment_current_value_no');
         $requirements['IS_GIT_DEPLOYMENT']['required_value'] = null;
         $requirements['IS_GIT_DEPLOYMENT']['severity'] = SystemStatusSeverity::Info;
+
+        $requirements['GIT_COMMIT_SHA']['name'] = __('views/inc/system/systemstatus.accordion_section_various_git_commit_sha');
+        $requirements['GIT_COMMIT_SHA']['current_value'] = ($is_git_deployment) ? trim(exec('tail -1 ../../.git/logs/HEAD | cut -d " " -f 2')) : __('views/inc/system/systemstatus.accordion_section_various_git_commit_sha_unknown');
+        $requirements['GIT_COMMIT_SHA']['required_value'] = null;
+        $requirements['GIT_COMMIT_SHA']['severity'] = SystemStatusSeverity::Info;
 
         $requirements['APP_ENVIRONMENT']['name'] = __('views/inc/system/systemstatus.accordion_section_various_app_env');
         $requirements['APP_ENVIRONMENT']['current_value'] = Config::get('app.env');
